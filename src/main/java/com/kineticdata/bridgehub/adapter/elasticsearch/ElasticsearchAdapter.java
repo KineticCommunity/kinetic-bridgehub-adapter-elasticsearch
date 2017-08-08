@@ -212,6 +212,21 @@ public class ElasticsearchAdapter implements BridgeAdapter {
                 .append(pageSize)
                 .append("&from=")
                 .append(offset);
+            //only set field limitation if we're not counting *and* the request specified fields to be returned.
+            if (request.getFields() != null && request.getFields().isEmpty() == false) {
+                StringBuilder includedFields = new StringBuilder();
+                String[] bridgeFields = request.getFieldArray();
+                for (int i = 0; i < request.getFieldArray().length; i++) {
+                    //strip _source from the beginning of the specified field name as this is redundent to Elasticsearch.
+                    includedFields.append(bridgeFields[i].replaceFirst("_source.", ""));
+                    //only append a comma if this is not the last field
+                    if (i != (request.getFieldArray().length -1)) {
+                        includedFields.append(",");
+                    }
+                }
+                url.append("&_source=")
+                    .append(URLEncoder.encode(includedFields.toString()));
+            }
         }
 
         return url.toString();
@@ -315,7 +330,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
                 throw new BridgeError("Unauthorized: The inputted Username/Password combination is not valid.");
             }
             if (responseCode < 200 || responseCode >= 300) {
-                throw new BridgeError("Unsuccessful HTTP response - the server returned a " + responseCode + " status code, expecting 200.");
+                throw new BridgeError("Unsuccessful HTTP response - the server returned a " + responseCode + " status code, expected 200.");
             }
         }
         catch (IOException e) {

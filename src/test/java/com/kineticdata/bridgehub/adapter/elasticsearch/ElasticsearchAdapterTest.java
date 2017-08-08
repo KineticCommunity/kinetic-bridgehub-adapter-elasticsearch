@@ -10,6 +10,7 @@ import com.kineticdata.bridgehub.adapter.BridgeError;
 import com.kineticdata.bridgehub.adapter.BridgeRequest;
 import com.kineticdata.bridgehub.adapter.Count;
 import com.kineticdata.bridgehub.adapter.Record;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import org.json.simple.JSONArray;
@@ -30,33 +31,56 @@ public class ElasticsearchAdapterTest {
     @Test
     public void test_escapedSearchUrl() throws Exception {
         
-        String expectedUrl = "http://localhost:9200/filebeat-*/_search?q=message%3A%22This+is+an+error.%22+AND+_timestamp%3A%3E2021-01-01&size=1000&from=0";
+        //"http://localhost:9200/filebeat-*/_search?q=message%3A%22This%5C+is%5C+an%5C+error.%22+AND+_timestamp%3A%3E2021%5C-01%5C-01&size=1000&from=0";
+        StringBuilder expectedUrl = new StringBuilder();
         String actualUrl = null;
+        String logLevel = "This is an error.";
+        String date = "2021-01-01";
+        String pageSize = "1000";
+        String offset = "0";
+        String structure = "filebeat-*";
+        String queryMethod = "search";
+        String query = "message:\"<%= parameter[\"log level\"] %>\" AND _timestamp:><%= parameter[\"date\"] %>";
+        String elasticUrl = "http://localhost:9200";
+        
+        BridgeRequest request = new BridgeRequest();
         
         Map<String,String> configuration = new HashMap<String,String>();
         configuration.put("Username",null);
         configuration.put("Password",null);
-        configuration.put("Elastic URL","http://localhost:9200");
+        configuration.put("Elastic URL",elasticUrl);
+        
+        request.setStructure(structure);
+        request.setQuery(query);
+        
+        Map<String, String> bridgeParameters = new HashMap<String, String>();
+        bridgeParameters.put("log level", logLevel);
+        bridgeParameters.put("date", date);
+        request.setParameters(bridgeParameters);
         
         ElasticsearchAdapter adapter = new ElasticsearchAdapter();
         adapter.setProperties(configuration);
         adapter.initialize();
         
-        Map<String, String> bridgeParameters = new HashMap<String, String>();
-        bridgeParameters.put("log level", "This is an error.");
-        bridgeParameters.put("date", "2021-01-01");
-        
         Map<String, String> bridgeMetadata = new HashMap<String, String>();
-        bridgeMetadata.put("pageSize", "1000");
-        bridgeMetadata.put("offset", "0");        
+        bridgeMetadata.put("pageSize", pageSize);
+        bridgeMetadata.put("offset", offset);
+        request.setMetadata(bridgeMetadata);
         
-        BridgeRequest request = new BridgeRequest();
-        request.setParameters(bridgeParameters);
-        request.setMetadata(bridgeMetadata);        
-        request.setStructure("filebeat-*");
-        request.setQuery("message:\"<%= parameter[\"log level\"] %>\" AND _timestamp:><%= parameter[\"date\"] %>");
+        // This is hard coded because the test should not reference the code for escaping. This need to manually be updated if the query variable changes.
+        expectedUrl.append(elasticUrl)
+            .append("/")
+            .append(structure)
+            .append("/")
+            .append("_")
+            .append(queryMethod)
+            .append("?q=")
+            .append("message%3A%22This%5C+is%5C+an%5C+error.%22+AND+_timestamp%3A%3E2021%5C-01%5C-01")
+            .append("&size=")
+            .append(pageSize)
+            .append("&from=")
+            .append(offset);
 
-        
         try {
             actualUrl = adapter.buildUrl("search", request);
         } catch (BridgeError e) {
@@ -64,7 +88,7 @@ public class ElasticsearchAdapterTest {
             throw new RuntimeException(e);
         }
         
-        assertEquals(expectedUrl, actualUrl);
+        assertEquals(expectedUrl.toString(), actualUrl);
         
     }
     
@@ -110,7 +134,7 @@ public class ElasticsearchAdapterTest {
     
     @Test
     public void testRetrieveResults() throws Exception {
-        String expectedUrl = "http://localhost:9200/examples/doc/_search?q=message%3Aerror&size=1000&from=0";
+        String expectedUrl = "http://localhost:9200/examples/doc/_search?q=message%3Aerror&size=1000&from=0&_source=app.username%2Capp.name";
         
         Map<String,String> configuration = new HashMap<String,String>();
         configuration.put("Username",null);
@@ -133,6 +157,12 @@ public class ElasticsearchAdapterTest {
         request.setMetadata(bridgeMetadata);        
         request.setStructure("examples/doc");
         request.setQuery("message:<%= parameter[\"log level\"] %>");
+        request.setFields(
+            Arrays.asList(
+                "_source.app.username",
+                "_source.app.name"
+            )
+        );
         
         assertEquals(expectedUrl, adapter.buildUrl("search", request));
         

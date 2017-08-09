@@ -17,8 +17,10 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.http.HttpEntity;
@@ -75,7 +77,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         this.username = properties.getValue(Properties.USERNAME);
         this.password = properties.getValue(Properties.PASSWORD);
         this.elasticEndpoint = properties.getValue(Properties.ELASTIC_URL);
-        //testAuthenticationValues(this.elasticEndpoint, this.username, this.password);
+        testAuthenticationValues(this.elasticEndpoint, this.username, this.password);
     }
 
     @Override
@@ -151,6 +153,8 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         JSONArray hitsArray = (JSONArray)hits.get("hits");
         
         List<Record> recordList = new ArrayList<Record>();
+        List<String> fieldList = new ArrayList<String>();
+        Set<String> uniqueFields = new LinkedHashSet<String>();
         
         for (Object o : hitsArray) {
             // Convert the standard java object to a JSONObject
@@ -159,6 +163,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
             Map<String, Object> fieldValues = new HashMap<String, Object>();
             mapToFields(jsonObject, new StringBuilder(), fieldValues);
             recordList.add(new Record(fieldValues));
+            uniqueFields.addAll(fieldValues.keySet());
         }
         
         // Create the metadata that needs to be returned.
@@ -166,7 +171,13 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         metadata.put("count",String.valueOf(recordList.size()));
         metadata.put("size", String.valueOf(recordList.size()));
 
-        return new RecordList(request.getFields(), recordList, metadata);
+        if (request.getFields() != null && request.getFields().isEmpty() == false) {
+            fieldList = request.getFields();
+        } else if (recordList.isEmpty() == false) {
+            fieldList = new ArrayList<String>(uniqueFields);
+        }
+        
+        return new RecordList(fieldList, recordList, metadata);
     }
     
     
@@ -218,7 +229,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
                 String[] bridgeFields = request.getFieldArray();
                 for (int i = 0; i < request.getFieldArray().length; i++) {
                     //strip _source from the beginning of the specified field name as this is redundent to Elasticsearch.
-                    includedFields.append(bridgeFields[i].replaceFirst("_source.", ""));
+                    includedFields.append(bridgeFields[i].replaceFirst("^_source\\.(.*)", "$1"));
                     //only append a comma if this is not the last field
                     if (i != (request.getFieldArray().length -1)) {
                         includedFields.append(",");
@@ -227,6 +238,24 @@ public class ElasticsearchAdapter implements BridgeAdapter {
                 url.append("&_source=")
                     .append(URLEncoder.encode(includedFields.toString()));
             }
+            //only set sorting if we're not counting *and* the request specified a sort order.
+            if (request.getMetadata("order") != null) {
+                List<String> orderList = new ArrayList<String>();
+                //loop over every defined sort order and add them to the Elasicsearch URL
+                for (Map.Entry<String,String> entry : BridgeUtils.parseOrder(request.getMetadata("order")).entrySet()) {
+                    String key = entry.getKey().replaceFirst("^_source\\.(.*)", "$1");
+                    if (entry.getValue().equals("DESC")) {
+                        orderList.add(String.format("%s:desc", key));
+                    }
+                    else {
+                        orderList.add(String.format("%s:asc", key));
+                    }
+                }
+                String order = StringUtils.join(orderList,",");
+                url.append("&sort=")
+                    .append(URLEncoder.encode(order));
+            }
+            
         }
 
         return url.toString();
@@ -335,7 +364,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         }
         catch (IOException e) {
             logger.error(e.getMessage());
-            throw new BridgeError("Unable to properly make a connection to the Elasticsearch health check API."); 
+            throw new BridgeError("Unable to make a connection to the Elasticsearch health check API."); 
         }
     }
 

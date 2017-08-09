@@ -8,7 +8,7 @@ public class ElasticsearchQualificationParser extends QualificationParser {
     public String encodeParameter(String name, String value) {
         String result = null;
         //https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#_reserved_characters
-        //escape the following characters with a backslash: + - = && || > < ! ( ) { } [ ] ^ " ~ * ? : \ /
+        //Next three lines: escape the following characters with a backslash: + - = && || > < ! ( ) { } [ ] ^ " ~ * ? : \ /  
         String regexReservedCharactersPattern = "(\\*|\\+|\\-|\\=|\\~|\\>|\\<|\\\"|\\?|\\^|\\$|\\{|\\}|\\(|\\)|\\:|\\!|\\/|\\[|\\]|\\\\|\\s)";
         if (StringUtils.isNotEmpty(value)) {
             result = value.replaceAll(regexReservedCharactersPattern, "\\\\$1")

@@ -8,6 +8,7 @@ package com.kineticdata.bridgehub.adapter.elasticsearch;
 import com.kineticdata.bridgehub.adapter.BridgeAdapter;
 import com.kineticdata.bridgehub.adapter.BridgeError;
 import com.kineticdata.bridgehub.adapter.BridgeRequest;
+import com.kineticdata.bridgehub.adapter.BridgeUtils;
 import com.kineticdata.bridgehub.adapter.Count;
 import com.kineticdata.bridgehub.adapter.Record;
 import java.util.Arrays;
@@ -67,15 +68,13 @@ public class ElasticsearchAdapterTest {
         bridgeMetadata.put("offset", offset);
         request.setMetadata(bridgeMetadata);
         
-        // This is hard coded because the test should not reference the code for escaping. This need to manually be updated if the query variable changes.
         expectedUrl.append(elasticUrl)
             .append("/")
             .append(structure)
             .append("/")
             .append("_")
             .append(queryMethod)
-            .append("?q=")
-            .append("message%3A%22This%5C+is%5C+an%5C+error.%22+AND+_timestamp%3A%3E2021%5C-01%5C-01")
+            .append("?q=message%3A%22This%5C+is%5C+an%5C+error.%22+AND+_timestamp%3A%3E2021%5C-01%5C-01")
             .append("&size=")
             .append(pageSize)
             .append("&from=")
@@ -88,6 +87,17 @@ public class ElasticsearchAdapterTest {
             throw new RuntimeException(e);
         }
         
+        assertEquals(expectedUrl.toString(), actualUrl);
+        
+        try {
+            bridgeMetadata.put("order", "<%=field[\"_timestamp\"]%>:DESC,<%=field[\"_source.message\"]%>:ASC");
+            request.setMetadata(bridgeMetadata);
+            actualUrl = adapter.buildUrl("search", request);
+        } catch (BridgeError e) {
+            throw new RuntimeException(e);
+        }
+        
+        expectedUrl.append("&sort=_timestamp%3Adesc%2Cmessage%3Aasc");
         assertEquals(expectedUrl.toString(), actualUrl);
         
     }

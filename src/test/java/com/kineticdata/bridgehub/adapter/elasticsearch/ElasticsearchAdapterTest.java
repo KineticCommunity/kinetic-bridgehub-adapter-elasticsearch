@@ -5,10 +5,8 @@
  */
 package com.kineticdata.bridgehub.adapter.elasticsearch;
 
-import com.kineticdata.bridgehub.adapter.BridgeAdapter;
 import com.kineticdata.bridgehub.adapter.BridgeError;
 import com.kineticdata.bridgehub.adapter.BridgeRequest;
-import com.kineticdata.bridgehub.adapter.BridgeUtils;
 import com.kineticdata.bridgehub.adapter.Count;
 import com.kineticdata.bridgehub.adapter.Record;
 import java.util.Arrays;
@@ -29,6 +27,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
  */
 public class ElasticsearchAdapterTest {
     
+    private final String elasticUrl = "http://localhost:9200";
+    
     @Test
     public void test_escapedSearchUrl() throws Exception {
         
@@ -42,7 +42,6 @@ public class ElasticsearchAdapterTest {
         String structure = "filebeat-*";
         String queryMethod = "search";
         String query = "message:\"<%= parameter[\"log level\"] %>\" AND _timestamp:><%= parameter[\"date\"] %>";
-        String elasticUrl = "http://localhost:9200";
         
         BridgeRequest request = new BridgeRequest();
         
@@ -105,13 +104,13 @@ public class ElasticsearchAdapterTest {
     @Test
     public void testCountResults() throws Exception {
         Integer expectedCount = 1;
-        String expectedUrl = "http://localhost:9200/examples/doc/_count?q=message%3Aerror";
+        String expectedUrl = elasticUrl + "/examples/doc/_count?q=message%3Aerror";
         Count actualCount;
         
         Map<String,String> configuration = new HashMap<String,String>();
         configuration.put("Username",null);
         configuration.put("Password",null);
-        configuration.put("Elastic URL","http://localhost:9200");
+        configuration.put("Elastic URL",elasticUrl);
         
         ElasticsearchAdapter adapter = new ElasticsearchAdapter();
         adapter.setProperties(configuration);
@@ -144,12 +143,12 @@ public class ElasticsearchAdapterTest {
     
     @Test
     public void testRetrieveResults() throws Exception {
-        String expectedUrl = "http://localhost:9200/examples/doc/_search?q=message%3Aerror&size=1000&from=0&_source=app.username%2Capp.name";
+        String expectedUrl = elasticUrl + "/examples/doc/_search?q=message%3Aerror&size=1000&from=0&_source=app.username%2Capp.name";
         
         Map<String,String> configuration = new HashMap<String,String>();
         configuration.put("Username",null);
         configuration.put("Password",null);
-        configuration.put("Elastic URL","http://localhost:9200");
+        configuration.put("Elastic URL", elasticUrl);
         
         ElasticsearchAdapter adapter = new ElasticsearchAdapter();
         adapter.setProperties(configuration);

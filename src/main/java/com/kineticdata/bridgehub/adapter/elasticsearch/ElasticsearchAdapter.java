@@ -150,6 +150,8 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         String jsonResponse = elasticQuery("search", request);
         JSONObject json = (JSONObject)JSONValue.parse(jsonResponse);
         JSONObject hits = (JSONObject)json.get("hits");
+        Object hitCount = hits.get("total");
+        Long count = (Long)hitCount;
         JSONArray hitsArray = (JSONArray)hits.get("hits");
         
         List<Record> recordList = new ArrayList<Record>();
@@ -168,7 +170,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         
         // Create the metadata that needs to be returned.
         Map<String,String> metadata = new LinkedHashMap<String,String>();        
-        metadata.put("count",String.valueOf(recordList.size()));
+        metadata.put("count",count.toString());
         metadata.put("size", String.valueOf(recordList.size()));
 
         if (request.getFields() != null && request.getFields().isEmpty() == false) {

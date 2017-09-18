@@ -9,6 +9,7 @@ import com.kineticdata.bridgehub.adapter.BridgeError;
 import com.kineticdata.bridgehub.adapter.BridgeRequest;
 import com.kineticdata.bridgehub.adapter.Count;
 import com.kineticdata.bridgehub.adapter.Record;
+import com.kineticdata.bridgehub.adapter.RecordList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -102,7 +103,7 @@ public class ElasticsearchAdapterTest {
     }
     
     @Test
-    public void testCountResults() throws Exception {
+    public void testCountResults_UriSearch() throws Exception {
         Integer expectedCount = 1;
         String expectedUrl = elasticUrl + "/examples/doc/_count?q=message%3Aerror";
         Count actualCount;
@@ -128,6 +129,46 @@ public class ElasticsearchAdapterTest {
         request.setMetadata(bridgeMetadata);        
         request.setStructure("examples/doc");
         request.setQuery("message:<%= parameter[\"log level\"] %>");
+        
+        assertEquals(expectedUrl, adapter.buildUrl("count", request));
+        
+        try {
+            actualCount = adapter.count(request);
+        } catch (BridgeError e) {
+            System.out.println(e.getMessage());
+            throw new RuntimeException(e);
+        }
+        
+        assertEquals(expectedCount, actualCount.getValue());
+    }
+    
+    @Test
+    public void testCountResults_RequestBodySearch() throws Exception {
+        Integer expectedCount = 1;
+        String expectedUrl = elasticUrl + "/examples/doc/_count";
+        Count actualCount;
+        
+        Map<String,String> configuration = new HashMap<String,String>();
+        configuration.put("Username",null);
+        configuration.put("Password",null);
+        configuration.put("Elastic URL",elasticUrl);
+        
+        ElasticsearchAdapter adapter = new ElasticsearchAdapter();
+        adapter.setProperties(configuration);
+        adapter.initialize();
+        
+        Map<String, String> bridgeParameters = new HashMap<String, String>();
+        bridgeParameters.put("log level", "error");
+        
+        Map<String, String> bridgeMetadata = new HashMap<String, String>();
+        bridgeMetadata.put("pageSize", "1000");
+        bridgeMetadata.put("offset", "0");        
+        
+        BridgeRequest request = new BridgeRequest();
+        request.setParameters(bridgeParameters);
+        request.setMetadata(bridgeMetadata);        
+        request.setStructure("examples/doc");
+        request.setQuery("{\"query\":{\"match\":{\"message\": \"<%= parameter[\"log level\"] %>\"}}}");
         
         assertEquals(expectedUrl, adapter.buildUrl("count", request));
         
@@ -177,38 +218,85 @@ public class ElasticsearchAdapterTest {
         
         Record bridgeRecord = adapter.retrieve(request);
         
-    }    
-    
+    }
+
     @Test
-    public void testMappingResponseToFields() throws Exception {
+    public void testRetrieveResults_RequestBodySearch() throws Exception {
+        String expectedUrl = elasticUrl + "/examples/doc/_search?size=1000&from=0&_source=message";
+        
+        Map<String,String> configuration = new HashMap<String,String>();
+        configuration.put("Username",null);
+        configuration.put("Password",null);
+        configuration.put("Elastic URL", elasticUrl);
         
         ElasticsearchAdapter adapter = new ElasticsearchAdapter();
-        StringBuilder fieldPrefix = new StringBuilder();
-        Map<String, Object> actualBridgeFields = new HashMap<String, Object>();
-        Map<String, Object> expectedBridgeFields = new HashMap<String, Object>();
+        adapter.setProperties(configuration);
+        adapter.initialize();
         
-        expectedBridgeFields.put("_id", "AV2y_WlvnjHdd-LJ52Y1");
-        expectedBridgeFields.put("_index", "examples");
-        expectedBridgeFields.put("_score", "0.68064547");
-        expectedBridgeFields.put("_type", "doc");
+        Map<String, String> bridgeParameters = new HashMap<String, String>();
+        bridgeParameters.put("log level", "error");
         
-        expectedBridgeFields.put("_source.message", "this is an error message.");
-        expectedBridgeFields.put("_source.app.username", "testuser");
-        expectedBridgeFields.put("_source.app.name", "Bridgehub");
-        expectedBridgeFields.put("_source.access.path", "NUNYA");
-        expectedBridgeFields.put("_source.number test", "25");
+        Map<String, String> bridgeMetadata = new HashMap<String, String>();
+        bridgeMetadata.put("pageSize", "1000");
+        bridgeMetadata.put("offset", "0");        
         
-        String elasticResponse = "{\"took\":1,\"timed_out\":false,\"_shards\":{\"total\":5,\"successful\":5,\"failed\":0},\"hits\":{\"total\":1,\"max_score\":0.68064547,\"hits\":[{\"_index\":\"examples\",\"_type\":\"doc\",\"_id\":\"AV2y_WlvnjHdd-LJ52Y1\",\"_score\":0.68064547,\"_source\":{\"message\":\"this is an error message.\",\"app\":{\"username\":\"testuser\",\"name\":\"Bridgehub\",},\"number test\":25,\"access\":{\"path\":\"NUNYA\"}}}]}}";
-
-        // Parse the Response String into a JSON Object
-        JSONObject json = (JSONObject)JSONValue.parse(elasticResponse);
-        // Get an array of objects from the parsed json
-        JSONObject hints = (JSONObject)json.get("hits");
-        JSONArray hitsArray = (JSONArray)hints.get("hits");
+        BridgeRequest request = new BridgeRequest();
+        request.setParameters(bridgeParameters);
+        request.setMetadata(bridgeMetadata);        
+        request.setStructure("examples/doc");
+        request.setQuery("{\"query\":{\"term\":{\"message\":\"<%= parameter[\"log level\"] %>\"}}}");
+        request.setFields(
+            Arrays.asList(
+                "_source.message"
+            )
+        );
         
-        adapter.mapToFields((JSONObject)hitsArray.get(0), fieldPrefix, actualBridgeFields);
+        assertEquals(expectedUrl, adapter.buildUrl("search", request));
+        Record bridgeRecord = adapter.retrieve(request);
         
-        assertThat(actualBridgeFields, is(expectedBridgeFields));
+        Map<String, Object> expectedValues = new HashMap();
+        expectedValues.put("_source.message", "this is an error message.");
+        
+        assertEquals(expectedValues, bridgeRecord.getRecord());
+                
+        
+    }    
+        
+    @Test
+    public void testJsonQualificationParsing() throws Exception {
+        
+        ElasticsearchQualificationParser parser = new ElasticsearchQualificationParser();
+        String originalQuery = "{\"size\":0,\"query\":{\"bool\":{\"must\":[{\"term\":{\"field 1\":\"<%= parameter[\"reserved lucene characters test\"] %>\"}},{\"term\":{\"field 2\":\"<%= parameter[\"json characters test\"] %>\"}},{\"term\":{\"field 3\":\"<%= parameter[\"space slug\"] %>\"}},{\"range\":{\"timestamp\":{\"gte\":\"now-<%= parameter[\"number of previous days\"] %>d\",\"lte\":\"now\"}}}],}}}";
+        String expectedParsedQuery = "{\"size\":0,\"query\":{\"bool\":{\"must\":[{\"term\":{\"field 1\":\"AND - OR *+\"}},{\"term\":{\"field 2\":\"\\\" \\\\r\\\\n \\\\ \\/\"}},{\"term\":{\"field 3\":\"kinetic-data-slug\"}},{\"range\":{\"timestamp\":{\"gte\":\"now-14d\",\"lte\":\"now\"}}}],}}}";
+        
+        
+        Map<String, String> parameters = new HashMap();
+        parameters.put("space slug", "kinetic-data-slug");
+        parameters.put("reserved lucene characters test", "AND - OR *+");
+        parameters.put("json characters test", "\" \\r\\n \\ /");
+        parameters.put("number of previous days", "14");
+        
+        String actualParsedQuery = parser.parse(originalQuery, parameters);
+        
+        assertEquals(expectedParsedQuery, actualParsedQuery);
+        
+    }
+    
+    @Test
+    public void testUriQualificationParsing() throws Exception {
+        
+        ElasticsearchQualificationParser parser = new ElasticsearchQualificationParser();
+        String originalQuery = "message:<%= parameter[\"reserved lucene characters test\"] %> AND field1:<%= parameter[\"json characters test\"] %>";
+        String expectedParsedQuery = "message:\\A\\N\\D\\ \\-\\ \\O\\R\\ \\*\\+ AND field1:\\\"\\ \\\\r\\\\n\\ \\\\";
+        
+        
+        Map<String, String> parameters = new HashMap();
+        parameters.put("reserved lucene characters test", "AND - OR *+");
+        parameters.put("json characters test", "\" \\r\\n \\");
+        
+        String actualParsedQuery = parser.parse(originalQuery, parameters);
+        
+        assertEquals(expectedParsedQuery, actualParsedQuery);
         
     }
     

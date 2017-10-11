@@ -32,9 +32,6 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.http.entity.ByteArrayEntity;
 import org.slf4j.LoggerFactory;
 import com.jayway.jsonpath.JsonPath;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import org.apache.http.NameValuePair;
 
 public class ElasticsearchAdapter implements BridgeAdapter {
     /*----------------------------------------------------------------------------------------------
@@ -44,8 +41,6 @@ public class ElasticsearchAdapter implements BridgeAdapter {
     /** Defines the adapter display name */
     public static final String NAME = "Elasticsearch Bridge";
     public static final String JSON_ROOT_DEFAULT = "$.hits.hits";
-    public static final String REGEX_ROOT_PATTERN = "^\\{.*?\\}\\|(\\$\\..*)$";
-    public static Pattern jsonRootPattern = Pattern.compile(REGEX_ROOT_PATTERN);
     
     /** Defines the logger */
     protected static final org.slf4j.Logger logger = LoggerFactory.getLogger(ElasticsearchAdapter.class);

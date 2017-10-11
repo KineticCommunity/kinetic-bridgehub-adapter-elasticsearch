@@ -9,18 +9,12 @@ import com.kineticdata.bridgehub.adapter.BridgeError;
 import com.kineticdata.bridgehub.adapter.BridgeRequest;
 import com.kineticdata.bridgehub.adapter.Count;
 import com.kineticdata.bridgehub.adapter.Record;
-import com.kineticdata.bridgehub.adapter.RecordList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.JSONValue;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
 
 /**
  *
@@ -45,6 +39,8 @@ public class ElasticsearchAdapterTest {
         String query = "message:\"<%= parameter[\"log level\"] %>\" AND _timestamp:><%= parameter[\"date\"] %>";
         
         BridgeRequest request = new BridgeRequest();
+        ElasticsearchQualificationParser parser = new ElasticsearchQualificationParser();
+        
         
         Map<String,String> configuration = new HashMap<String,String>();
         configuration.put("Username",null);
@@ -81,7 +77,7 @@ public class ElasticsearchAdapterTest {
             .append(offset);
 
         try {
-            actualUrl = adapter.buildUrl("search", request);
+            actualUrl = adapter.buildUrl("search", request, parser);
         } catch (BridgeError e) {
             System.out.println(e.getMessage());
             throw new RuntimeException(e);
@@ -92,7 +88,7 @@ public class ElasticsearchAdapterTest {
         try {
             bridgeMetadata.put("order", "<%=field[\"_timestamp\"]%>:DESC,<%=field[\"_source.message\"]%>:ASC");
             request.setMetadata(bridgeMetadata);
-            actualUrl = adapter.buildUrl("search", request);
+            actualUrl = adapter.buildUrl("search", request, parser);
         } catch (BridgeError e) {
             throw new RuntimeException(e);
         }
@@ -114,6 +110,7 @@ public class ElasticsearchAdapterTest {
         configuration.put("Elastic URL",elasticUrl);
         
         ElasticsearchAdapter adapter = new ElasticsearchAdapter();
+        ElasticsearchQualificationParser parser = new ElasticsearchQualificationParser();
         adapter.setProperties(configuration);
         adapter.initialize();
         
@@ -130,7 +127,7 @@ public class ElasticsearchAdapterTest {
         request.setStructure("examples/doc");
         request.setQuery("message:<%= parameter[\"log level\"] %>");
         
-        assertEquals(expectedUrl, adapter.buildUrl("count", request));
+        assertEquals(expectedUrl, adapter.buildUrl("count", request, parser));
         
         try {
             actualCount = adapter.count(request);
@@ -154,11 +151,12 @@ public class ElasticsearchAdapterTest {
         configuration.put("Elastic URL",elasticUrl);
         
         ElasticsearchAdapter adapter = new ElasticsearchAdapter();
+        ElasticsearchQualificationParser parser = new ElasticsearchQualificationParser();
         adapter.setProperties(configuration);
         adapter.initialize();
         
         Map<String, String> bridgeParameters = new HashMap<String, String>();
-        bridgeParameters.put("log level", "error");
+        bridgeParameters.put("elastic json query", "{\\\"query\\\":{\\\"match\\\":{\\\"message\\\": \\\"error\\\"}}}");
         
         Map<String, String> bridgeMetadata = new HashMap<String, String>();
         bridgeMetadata.put("pageSize", "1000");
@@ -168,9 +166,9 @@ public class ElasticsearchAdapterTest {
         request.setParameters(bridgeParameters);
         request.setMetadata(bridgeMetadata);        
         request.setStructure("examples/doc");
-        request.setQuery("{\"query\":{\"match\":{\"message\": \"<%= parameter[\"log level\"] %>\"}}}");
+        request.setQuery("{\"type\": \"Elasticsearch DSL\", \"query\": \"<%= parameter[\"elastic json query\"] %>\"}");
         
-        assertEquals(expectedUrl, adapter.buildUrl("count", request));
+        assertEquals(expectedUrl, adapter.buildUrl("count", request, parser));
         
         try {
             actualCount = adapter.count(request);
@@ -192,6 +190,7 @@ public class ElasticsearchAdapterTest {
         configuration.put("Elastic URL", elasticUrl);
         
         ElasticsearchAdapter adapter = new ElasticsearchAdapter();
+        ElasticsearchQualificationParser parser = new ElasticsearchQualificationParser();
         adapter.setProperties(configuration);
         adapter.initialize();
         
@@ -214,7 +213,7 @@ public class ElasticsearchAdapterTest {
             )
         );
         
-        assertEquals(expectedUrl, adapter.buildUrl("search", request));
+        assertEquals(expectedUrl, adapter.buildUrl("search", request, parser));
         
         Record bridgeRecord = adapter.retrieve(request);
         
@@ -230,6 +229,7 @@ public class ElasticsearchAdapterTest {
         configuration.put("Elastic URL", elasticUrl);
         
         ElasticsearchAdapter adapter = new ElasticsearchAdapter();
+        ElasticsearchQualificationParser parser = new ElasticsearchQualificationParser();
         adapter.setProperties(configuration);
         adapter.initialize();
         
@@ -244,14 +244,14 @@ public class ElasticsearchAdapterTest {
         request.setParameters(bridgeParameters);
         request.setMetadata(bridgeMetadata);        
         request.setStructure("examples/doc");
-        request.setQuery("{\"query\":{\"term\":{\"message\":\"<%= parameter[\"log level\"] %>\"}}}");
+        request.setQuery("{\"type\": \"Elasticsearch DSL\", \"query\": \"{\\\"query\\\":{\\\"term\\\":{\\\"message\\\":\\\"<%= parameter[\"log level\"] %>\\\"}}}\"}");
         request.setFields(
             Arrays.asList(
                 "_source.message"
             )
         );
         
-        assertEquals(expectedUrl, adapter.buildUrl("search", request));
+        assertEquals(expectedUrl, adapter.buildUrl("search", request, parser));
         Record bridgeRecord = adapter.retrieve(request);
         
         Map<String, Object> expectedValues = new HashMap();
@@ -266,9 +266,8 @@ public class ElasticsearchAdapterTest {
     public void testJsonQualificationParsing() throws Exception {
         
         ElasticsearchQualificationParser parser = new ElasticsearchQualificationParser();
-        String originalQuery = "{\"size\":0,\"query\":{\"bool\":{\"must\":[{\"term\":{\"field 1\":\"<%= parameter[\"reserved lucene characters test\"] %>\"}},{\"term\":{\"field 2\":\"<%= parameter[\"json characters test\"] %>\"}},{\"term\":{\"field 3\":\"<%= parameter[\"space slug\"] %>\"}},{\"range\":{\"timestamp\":{\"gte\":\"now-<%= parameter[\"number of previous days\"] %>d\",\"lte\":\"now\"}}}],}}}";
+        String originalQuery = "{\"type\": \"Elasticsearch DSL\", \"query\": \"{\\\"size\\\":0,\\\"query\\\":{\\\"bool\\\":{\\\"must\\\":[{\\\"term\\\":{\\\"field 1\\\":\\\"<%= parameter[\"reserved lucene characters test\"] %>\\\"}},{\\\"term\\\":{\\\"field 2\\\":\\\"<%= parameter[\"json characters test\"] %>\\\"}},{\\\"term\\\":{\\\"field 3\\\":\\\"<%= parameter[\"space slug\"] %>\\\"}},{\\\"range\\\":{\\\"timestamp\\\":{\\\"gte\\\":\\\"now-<%= parameter[\"number of previous days\"] %>d\\\",\\\"lte\\\":\\\"now\\\"}}}],}}}\"}";
         String expectedParsedQuery = "{\"size\":0,\"query\":{\"bool\":{\"must\":[{\"term\":{\"field 1\":\"AND - OR *+\"}},{\"term\":{\"field 2\":\"\\\" \\\\r\\\\n \\\\ \\/\"}},{\"term\":{\"field 3\":\"kinetic-data-slug\"}},{\"range\":{\"timestamp\":{\"gte\":\"now-14d\",\"lte\":\"now\"}}}],}}}";
-        
         
         Map<String, String> parameters = new HashMap();
         parameters.put("space slug", "kinetic-data-slug");

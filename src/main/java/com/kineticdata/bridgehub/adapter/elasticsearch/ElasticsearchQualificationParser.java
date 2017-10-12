@@ -31,14 +31,14 @@ public class ElasticsearchQualificationParser extends QualificationParser {
         String result = null;
         //http://lucene.apache.org/core/4_0_0/queryparser/org/apache/lucene/queryparser/classic/package-summary.html#Escaping_Special_Characters
         //Next three lines: escape the following characters with a backslash: + - = && || > < ! ( ) { } [ ] ^ " ~ * ? : \ /  
-        String regexReservedCharactersPattern = "(\\*|\\+|\\-|\\=|\\~|\\>|\\<|\\\"|\\?|\\^|\\$|\\{|\\}|\\(|\\)|\\:|\\!|\\/|\\[|\\]|\\\\|\\s)";
+        String regexReservedCharactersPattern = "(\\*|\\+|\\-|\\=|\\~|\\\"|\\?|\\^|\\$|\\{|\\}|\\(|\\)|\\:|\\!|\\/|\\[|\\]|\\\\|\\s)";
         if (StringUtils.isNotEmpty(value)) {
-            result = value.replaceAll(regexReservedCharactersPattern, "\\\\$1")
+            result = value.replaceAll(regexReservedCharactersPattern, Matcher.quoteReplacement("\\") + "$1")
                 .replaceAll("\\|\\|", "\\\\||")
                 .replaceAll("\\&\\&", "\\\\&&")
-                .replaceAll("AND", "\\\\A\\\\N\\\\D")
-                .replaceAll("OR", "\\\\O\\\\R")
-                .replaceAll("NOT", "\\\\N\\\\O\\\\T");
+                .replaceAll("\\b+AND\\b+", Matcher.quoteReplacement("\\\\AND"))
+                .replaceAll("\\b+OR\\b+", Matcher.quoteReplacement("\\\\OR"))
+                .replaceAll("\\b+NOT\\b+", Matcher.quoteReplacement("\\\\NOT"));
         }
         return result;
     }
@@ -204,38 +204,51 @@ public class ElasticsearchQualificationParser extends QualificationParser {
         StringBuffer resultBuffer = new StringBuffer();
         Pattern pattern = Pattern.compile(PARAMETER_PATTERN_JSON_SAFE);
         Matcher matcher = pattern.matcher(elasticsearchQuery);
-
-        while (matcher.find()) {
-            // Retrieve the necessary values
+        
+        if (elasticsearchQuery.matches("^\\s*<%= parameter\\['.*?'\\] %>\\s*$")) {
+            matcher.find();
             String parameterName = matcher.group(1);
-            // If there were no parameters provided
-            if (parameters == null) {
-                throw new BridgeError("Unable to parse qualification, "+
-                    "the '"+parameterName+"' parameter was referenced but no "+
-                    "parameters were provided.");
-            }
             String parameterValue = parameters.get(parameterName);
-            // If there is a reference to a parameter that was not passed
-            if (parameterValue == null) {
-                throw new BridgeError("Unable to parse qualification, "+
-                    "the '"+parameterName+"' parameter was referenced but "+
-                    "not provided.");
+            resultBuffer.append(
+                elasticsearchQuery.replaceFirst(
+                    PARAMETER_PATTERN_JSON_SAFE, 
+                    parameterValue
+                )
+            );
+        } else {
+            while (matcher.find()) {
+                // Retrieve the necessary values
+                String parameterName = matcher.group(1);
+                // If there were no parameters provided
+                if (parameters == null) {
+                    throw new BridgeError("Unable to parse qualification, "+
+                        "the '"+parameterName+"' parameter was referenced but no "+
+                        "parameters were provided.");
+                }
+                String parameterValue = parameters.get(parameterName);
+                // If there is a reference to a parameter that was not passed
+                if (parameterValue == null) {
+                    throw new BridgeError("Unable to parse qualification, "+
+                        "the '"+parameterName+"' parameter was referenced but "+
+                        "not provided.");
+                }
+
+                String value;
+                // If the query string starts with a curly brace, this is a JSON payload.
+                // else it is supposed to be a query used for the q parameter in a URI Search
+                if (isJsonQuery) {
+                    // if JSON, escape any JSON special characters.
+                    value = JSONValue.escape(parameterValue);
+                } else {
+                    // if not JSON, encode the parameter by escaping any Lucene query syntax reserved characters.
+                    value = encodeParameter(parameterName, parameterValue);
+                }
+                matcher.appendReplacement(resultBuffer, Matcher.quoteReplacement(value));
             }
 
-            String value;
-            // If the query string starts with a curly brace, this is a JSON payload.
-            // else it is supposed to be a query used for the q parameter in a URI Search
-            if (isJsonQuery) {
-                // if JSON, escape any JSON special characters.
-                value = JSONValue.escape(encodeParameter(parameterName, parameterValue));
-            } else {
-                // if not JSON, encode the parameter by escaping any Lucene query syntax reserved characters.
-                value = encodeParameter(parameterName, parameterValue);
-            }
-            matcher.appendReplacement(resultBuffer, Matcher.quoteReplacement(value));
+            matcher.appendTail(resultBuffer);
         }
-
-        matcher.appendTail(resultBuffer);
+        
         return resultBuffer.toString();
 
     }

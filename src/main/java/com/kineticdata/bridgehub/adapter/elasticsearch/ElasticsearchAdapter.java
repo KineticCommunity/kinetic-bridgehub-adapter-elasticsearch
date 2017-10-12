@@ -233,7 +233,6 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         // if the query is not a request body JSON query...
         if (query.matches("^\\s*\\{.*?\\}\\s*$") == false) {
             addParameter(url, "q", query);
-            
         }
                 
         //only set pagination if we're not counting.

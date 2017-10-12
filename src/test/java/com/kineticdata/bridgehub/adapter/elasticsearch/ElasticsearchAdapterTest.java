@@ -156,7 +156,7 @@ public class ElasticsearchAdapterTest {
         adapter.initialize();
         
         Map<String, String> bridgeParameters = new HashMap<String, String>();
-        bridgeParameters.put("elastic json query", "{\\\"query\\\":{\\\"match\\\":{\\\"message\\\": \\\"error\\\"}}}");
+        bridgeParameters.put("elastic json query", "{\"query\":{\"match\":{\"message\": \"error\"}}}");
         
         Map<String, String> bridgeMetadata = new HashMap<String, String>();
         bridgeMetadata.put("pageSize", "1000");
@@ -267,12 +267,12 @@ public class ElasticsearchAdapterTest {
         
         ElasticsearchQualificationParser parser = new ElasticsearchQualificationParser();
         String originalQuery = "{\"type\": \"Elasticsearch DSL\", \"query\": \"{\\\"size\\\":0,\\\"query\\\":{\\\"bool\\\":{\\\"must\\\":[{\\\"term\\\":{\\\"field 1\\\":\\\"<%= parameter[\"reserved lucene characters test\"] %>\\\"}},{\\\"term\\\":{\\\"field 2\\\":\\\"<%= parameter[\"json characters test\"] %>\\\"}},{\\\"term\\\":{\\\"field 3\\\":\\\"<%= parameter[\"space slug\"] %>\\\"}},{\\\"range\\\":{\\\"timestamp\\\":{\\\"gte\\\":\\\"now-<%= parameter[\"number of previous days\"] %>d\\\",\\\"lte\\\":\\\"now\\\"}}}],}}}\"}";
-        String expectedParsedQuery = "{\"size\":0,\"query\":{\"bool\":{\"must\":[{\"term\":{\"field 1\":\"AND - OR *+\"}},{\"term\":{\"field 2\":\"\\\" \\\\r\\\\n \\\\ \\/\"}},{\"term\":{\"field 3\":\"kinetic-data-slug\"}},{\"range\":{\"timestamp\":{\"gte\":\"now-14d\",\"lte\":\"now\"}}}],}}}";
+        String expectedParsedQuery = "{\"size\":0,\"query\":{\"bool\":{\"must\":[{\"term\":{\"field 1\":\"AND - OR *+\"}},{\"term\":{\"field 2\":\"\\\" \\\\r\\\\n \\\\ \"}},{\"term\":{\"field 3\":\"kinetic-data-slug\"}},{\"range\":{\"timestamp\":{\"gte\":\"now-14d\",\"lte\":\"now\"}}}],}}}";
         
         Map<String, String> parameters = new HashMap();
         parameters.put("space slug", "kinetic-data-slug");
         parameters.put("reserved lucene characters test", "AND - OR *+");
-        parameters.put("json characters test", "\" \\r\\n \\ /");
+        parameters.put("json characters test", "\" \\r\\n \\ ");
         parameters.put("number of previous days", "14");
         
         String actualParsedQuery = parser.parse(originalQuery, parameters);
@@ -286,7 +286,7 @@ public class ElasticsearchAdapterTest {
         
         ElasticsearchQualificationParser parser = new ElasticsearchQualificationParser();
         String originalQuery = "message:<%= parameter[\"reserved lucene characters test\"] %> AND field1:<%= parameter[\"json characters test\"] %>";
-        String expectedParsedQuery = "message:\\A\\N\\D\\ \\-\\ \\O\\R\\ \\*\\+ AND field1:\\\"\\ \\\\r\\\\n\\ \\\\";
+        String expectedParsedQuery = "message:\\\\AND\\ \\-\\ \\\\OR\\ \\*\\+ AND field1:\\\"\\ \\\\r\\\\n\\ \\\\";
         
         
         Map<String, String> parameters = new HashMap();

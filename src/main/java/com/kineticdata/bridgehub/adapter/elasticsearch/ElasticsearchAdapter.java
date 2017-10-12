@@ -120,7 +120,11 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         
         ElasticsearchQualificationParser elasticParser = new ElasticsearchQualificationParser();
         String metadataRoot = elasticParser.getJsonRootPath(request.getQuery());
-        if (StringUtils.isNotBlank(metadataRoot)) jsonRootPath = metadataRoot;
+        if (StringUtils.isNotBlank(metadataRoot)) {
+            jsonRootPath = metadataRoot;
+        } else {
+            jsonRootPath = JSON_ROOT_DEFAULT;
+        }
         
         String jsonResponse = elasticQuery("search", request, elasticParser);
         DocumentContext jsonDocument = JsonPath.parse(jsonResponse);
@@ -163,7 +167,11 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         
         ElasticsearchQualificationParser elasticParser = new ElasticsearchQualificationParser();
         String metadataRoot = elasticParser.getJsonRootPath(request.getQuery());
-        if (StringUtils.isNotBlank(metadataRoot)) jsonRootPath = metadataRoot;
+        if (StringUtils.isNotBlank(metadataRoot)) {
+            jsonRootPath = metadataRoot;
+        } else {
+            jsonRootPath = JSON_ROOT_DEFAULT;
+        }
         
         String jsonResponse = elasticQuery("search", request, elasticParser);
         List<Record> recordList = new ArrayList<Record>();

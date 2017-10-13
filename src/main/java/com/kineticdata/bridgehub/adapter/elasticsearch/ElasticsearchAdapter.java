@@ -37,16 +37,16 @@ public class ElasticsearchAdapter implements BridgeAdapter {
     /*----------------------------------------------------------------------------------------------
      * PROPERTIES
      *--------------------------------------------------------------------------------------------*/
-    
+
     /** Defines the adapter display name */
     public static final String NAME = "Elasticsearch Bridge";
     public static final String JSON_ROOT_DEFAULT = "$.hits.hits";
-    
+
     /** Defines the logger */
     protected static final org.slf4j.Logger logger = LoggerFactory.getLogger(ElasticsearchAdapter.class);
 
     /** Adapter version constant. */
-    public static String VERSION = "1.0.0";
+    public static String VERSION = "1.0.0-SNAPSHOT";
 
     private String username;
     private String password;
@@ -59,18 +59,18 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         public static final String PASSWORD = "Password";
         public static final String API_URL = "Elastic URL";
     }
-    
+
     private final ConfigurablePropertyMap properties = new ConfigurablePropertyMap(
         new ConfigurableProperty(Properties.USERNAME),
         new ConfigurableProperty(Properties.PASSWORD).setIsSensitive(true),
         new ConfigurableProperty(Properties.API_URL)
     );
 
-    
+
     /*---------------------------------------------------------------------------------------------
      * SETUP METHODS
      *-------------------------------------------------------------------------------------------*/
-    
+
     @Override
     public void initialize() throws BridgeError {
         this.username = properties.getValue(Properties.USERNAME);
@@ -84,22 +84,22 @@ public class ElasticsearchAdapter implements BridgeAdapter {
     public String getName() {
         return NAME;
     }
-    
+
     @Override
     public String getVersion() {
         return VERSION;
     }
-    
+
     @Override
     public void setProperties(Map<String,String> parameters) {
         properties.setValues(parameters);
     }
-    
+
     @Override
     public ConfigurablePropertyMap getProperties() {
         return properties;
     }
-    
+
     /*---------------------------------------------------------------------------------------------
      * IMPLEMENTATION METHODS
      *-------------------------------------------------------------------------------------------*/
@@ -117,7 +117,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
 
     @Override
     public Record retrieve(BridgeRequest request) throws BridgeError {
-        
+
         ElasticsearchQualificationParser elasticParser = new ElasticsearchQualificationParser();
         String metadataRoot = elasticParser.getJsonRootPath(request.getQuery());
         if (StringUtils.isNotBlank(metadataRoot)) {
@@ -125,12 +125,12 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         } else {
             jsonRootPath = JSON_ROOT_DEFAULT;
         }
-        
+
         String jsonResponse = elasticQuery("search", request, elasticParser);
         DocumentContext jsonDocument = JsonPath.parse(jsonResponse);
         Object objectRoot = jsonDocument.read(jsonRootPath);
         Record recordResult = new Record(null);
-        
+
         if (objectRoot instanceof List) {
             List<Object> listRoot = (List)objectRoot;
             if (listRoot.size() == 1) {
@@ -157,14 +157,14 @@ public class ElasticsearchAdapter implements BridgeAdapter {
             }
             recordResult = new Record(recordValues);
         }
-        
+
         return recordResult;
-        
+
     }
 
     @Override
     public RecordList search(BridgeRequest request) throws BridgeError {
-        
+
         ElasticsearchQualificationParser elasticParser = new ElasticsearchQualificationParser();
         String metadataRoot = elasticParser.getJsonRootPath(request.getQuery());
         if (StringUtils.isNotBlank(metadataRoot)) {
@@ -172,14 +172,14 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         } else {
             jsonRootPath = JSON_ROOT_DEFAULT;
         }
-        
+
         String jsonResponse = elasticQuery("search", request, elasticParser);
         List<Record> recordList = new ArrayList<Record>();
         DocumentContext jsonDocument = JsonPath.parse(jsonResponse);
         Object objectRoot = jsonDocument.read(jsonRootPath);
         Map<String,String> metadata = new LinkedHashMap<String,String>();
         metadata.put("count",JsonPath.parse(jsonResponse).read("$.hits.total", String.class));
-        
+
         if (objectRoot instanceof List) {
             List<Object> listRoot = (List)objectRoot;
             metadata.put("size", String.valueOf(listRoot.size()));
@@ -204,28 +204,28 @@ public class ElasticsearchAdapter implements BridgeAdapter {
             }
             recordList.add(new Record(recordValues));
         }
-        
+
         return new RecordList(request.getFields(), recordList, metadata);
-        
+
     }
-    
+
 
     /*----------------------------------------------------------------------------------------------
      * PUBLIC HELPER METHODS
      *--------------------------------------------------------------------------------------------*/
-    
+
     public String buildUrl(String queryMethod, BridgeRequest request, ElasticsearchQualificationParser elasticParser) throws BridgeError {
         Map<String,String> metadata = BridgeUtils.normalizePaginationMetadata(request.getMetadata());
         String pageSize = "1000";
         String offset = "0";
-        
+
         if (StringUtils.isNotBlank(metadata.get("pageSize")) && metadata.get("pageSize").equals("0") == false) {
             pageSize = metadata.get("pageSize");
         }
         if (StringUtils.isNotBlank(metadata.get("offset"))) {
             offset = metadata.get("offset");
         }
-        
+
         String query = null;
         query = elasticParser.parse(request.getQuery(),request.getParameters());
 
@@ -237,20 +237,20 @@ public class ElasticsearchAdapter implements BridgeAdapter {
             .append(request.getStructure())
             .append("/_")
             .append(queryMethod);
-        
+
         // if the query is not a request body JSON query...
         if (query.matches("^\\s*\\{.*?\\}\\s*$") == false) {
             addParameter(url, "q", query);
         }
-                
+
         //only set pagination if we're not counting.
         if (queryMethod.equals("count") == false) {
             addParameter(url, "size", pageSize);
             addParameter(url, "from", offset);
-            // only set field limitation if we're not counting 
+            // only set field limitation if we're not counting
             //   *and* the request specified fields to be returned
             //   *and* the JSON root path has not changed.
-            if (request.getFields() != null && 
+            if (request.getFields() != null &&
                 request.getFields().isEmpty() == false &&
                 jsonRootPath.equals(JSON_ROOT_DEFAULT)
             ) {
@@ -282,12 +282,12 @@ public class ElasticsearchAdapter implements BridgeAdapter {
                 String order = StringUtils.join(orderList,",");
                 addParameter(url, "sort", order);
             }
-            
+
         }
 
         logger.trace("Elasticsearch URL: {}", url.toString());
         return url.toString();
-        
+
     }
 
     /*----------------------------------------------------------------------------------------------
@@ -308,18 +308,18 @@ public class ElasticsearchAdapter implements BridgeAdapter {
             .append("=")
             .append(URLEncoder.encode(parameterValue));
     }
-    
+
     private String elasticQuery(String queryMethod, BridgeRequest request, ElasticsearchQualificationParser elasticParser) throws BridgeError{
-        
-        String query = elasticParser.parse(request.getQuery(),request.getParameters());        
+
+        String query = elasticParser.parse(request.getQuery(),request.getParameters());
         //Set query to return everything if no qualification defined.
         if (StringUtils.isBlank(query)) {
             query = "*:*";
         }
-        
+
         String result = null;
         String url = buildUrl(queryMethod, request, elasticParser);
-        
+
         // Initialize the HTTP Client, Response, and Get objects.
         HttpClient client = new DefaultHttpClient();
         HttpResponse response;
@@ -331,13 +331,13 @@ public class ElasticsearchAdapter implements BridgeAdapter {
             throw new BridgeError(e);
         }
         get.setURI(uri);
-        
+
         // If the query is a JSON object, assume JSON and Request Body searching.
         if (query.matches("^\\s*\\{.*?\\}\\s*$")) {
             HttpEntity entity;
             try {
                 String parsedQuery = elasticParser.parse(request.getQuery(), request.getParameters());
-                
+
                 // Set the parsed query as the request body payload.
                 entity = new ByteArrayEntity(parsedQuery.getBytes("UTF-8"));
                 get.setEntity(entity);
@@ -357,10 +357,10 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         try {
             response = client.execute(get);
             Integer responseStatus = response.getStatusLine().getStatusCode();
-            
+
             HttpEntity entity = response.getEntity();
             if (responseStatus >= 300 || responseStatus < 200) {
-                String errorMessage = EntityUtils.toString(entity);                                  
+                String errorMessage = EntityUtils.toString(entity);
                 throw new BridgeError(
                     String.format(
                         "The Elasicsearch server returned a HTTP status code of %d, 200 was expected. Response body: %s",
@@ -369,17 +369,17 @@ public class ElasticsearchAdapter implements BridgeAdapter {
                     )
                 );
             }
-            
+
             result = EntityUtils.toString(entity);
             logger.trace(String.format("Request response code: %s", response.getStatusLine().getStatusCode()));
         } catch (IOException e) {
             throw new BridgeError("Unable to make a connection to the Elasticsearch server", e);
         }
         logger.trace(String.format("Elasticsearch response - Raw Output: %s", result));
-        
+
         return result;
     }
-    
+
     private void testAuthenticationValues(String restEndpoint, String username, String password) throws BridgeError {
         logger.debug("Testing the authentication credentials");
         HttpGetWithEntity get = new HttpGetWithEntity();
@@ -390,7 +390,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
             throw new BridgeError(e);
         }
         get.setURI(uri);
-        
+
         if (username != null && password != null) {
             addBasicAuthenticationHeader(get, this.username, this.password);
         }
@@ -416,7 +416,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         }
         catch (IOException e) {
             logger.error(e.getMessage());
-            throw new BridgeError("Unable to make a connection to the Elasticsearch health check API."); 
+            throw new BridgeError("Unable to make a connection to the Elasticsearch health check API.");
         }
     }
 

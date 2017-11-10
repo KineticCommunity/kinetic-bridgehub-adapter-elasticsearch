@@ -51,10 +51,10 @@ public class ElasticsearchAdapter implements BridgeAdapter {
     static {
         try {
             java.util.Properties properties = new java.util.Properties();
-            properties.load(SolrAdapter.class.getResourceAsStream("/"+SolrAdapter.class.getName()+".version"));
+            properties.load(ElasticsearchAdapter.class.getResourceAsStream("/"+ElasticsearchAdapter.class.getName()+".version"));
             VERSION = properties.getProperty("version");
         } catch (IOException e) {
-            logger.warn("Unable to load "+SolrAdapter.class.getName()+" version properties.", e);
+            logger.warn("Unable to load "+ElasticsearchAdapter.class.getName()+" version properties.", e);
             VERSION = "Unknown";
         }
     }

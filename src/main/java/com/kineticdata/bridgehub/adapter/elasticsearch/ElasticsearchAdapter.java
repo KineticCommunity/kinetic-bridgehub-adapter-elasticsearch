@@ -25,7 +25,7 @@ import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
@@ -332,7 +332,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         String url = buildUrl(queryMethod, request, elasticParser);
 
         // Initialize the HTTP Client, Response, and Get objects.
-        HttpClient client = new DefaultHttpClient();
+        HttpClient client = HttpClients.createDefault();
         HttpResponse response;
         HttpGetWithEntity get = new HttpGetWithEntity();
         URI uri;
@@ -406,7 +406,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
             addBasicAuthenticationHeader(get, this.username, this.password);
         }
 
-        DefaultHttpClient client = new DefaultHttpClient();
+        HttpClient client = HttpClients.createDefault();
         HttpResponse response;
         try {
             response = client.execute(get);

@@ -77,7 +77,7 @@ public class ElasticsearchAdapterTest {
             .append(offset);
 
         try {
-            actualUrl = adapter.buildUrl("search", request, parser);
+            actualUrl = adapter.buildUrl("search", ElasticsearchAdapter.JSON_ROOT_DEFAULT, request, parser);
         } catch (BridgeError e) {
             System.out.println(e.getMessage());
             throw new RuntimeException(e);
@@ -88,7 +88,7 @@ public class ElasticsearchAdapterTest {
         try {
             bridgeMetadata.put("order", "<%=field[\"_timestamp\"]%>:DESC,<%=field[\"_source.message\"]%>:ASC");
             request.setMetadata(bridgeMetadata);
-            actualUrl = adapter.buildUrl("search", request, parser);
+            actualUrl = adapter.buildUrl("search", ElasticsearchAdapter.JSON_ROOT_DEFAULT, request, parser);
         } catch (BridgeError e) {
             throw new RuntimeException(e);
         }
@@ -127,7 +127,7 @@ public class ElasticsearchAdapterTest {
         request.setStructure("examples/doc");
         request.setQuery("message:<%= parameter[\"log level\"] %>");
         
-        assertEquals(expectedUrl, adapter.buildUrl("count", request, parser));
+        assertEquals(expectedUrl, adapter.buildUrl("count", ElasticsearchAdapter.JSON_ROOT_DEFAULT, request, parser));
         
         try {
             actualCount = adapter.count(request);
@@ -168,7 +168,7 @@ public class ElasticsearchAdapterTest {
         request.setStructure("examples/doc");
         request.setQuery("{\"type\": \"Elasticsearch DSL\", \"query\": \"<%= parameter[\"elastic json query\"] %>\"}");
         
-        assertEquals(expectedUrl, adapter.buildUrl("count", request, parser));
+        assertEquals(expectedUrl, adapter.buildUrl("count", ElasticsearchAdapter.JSON_ROOT_DEFAULT, request, parser));
         
         try {
             actualCount = adapter.count(request);
@@ -213,7 +213,7 @@ public class ElasticsearchAdapterTest {
             )
         );
         
-        assertEquals(expectedUrl, adapter.buildUrl("search", request, parser));
+        assertEquals(expectedUrl, adapter.buildUrl("search", ElasticsearchAdapter.JSON_ROOT_DEFAULT, request, parser));
         
         Record bridgeRecord = adapter.retrieve(request);
         
@@ -251,7 +251,7 @@ public class ElasticsearchAdapterTest {
             )
         );
         
-        assertEquals(expectedUrl, adapter.buildUrl("search", request, parser));
+        assertEquals(expectedUrl, adapter.buildUrl("search", ElasticsearchAdapter.JSON_ROOT_DEFAULT, request, parser));
         Record bridgeRecord = adapter.retrieve(request);
         
         Map<String, Object> expectedValues = new HashMap();

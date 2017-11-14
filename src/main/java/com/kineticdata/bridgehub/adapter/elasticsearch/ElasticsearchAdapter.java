@@ -46,12 +46,11 @@ public class ElasticsearchAdapter implements BridgeAdapter {
     protected static final org.slf4j.Logger logger = LoggerFactory.getLogger(ElasticsearchAdapter.class);
 
     /** Adapter version constant. */
-    public static String VERSION = "1.0.0";
+    public static String VERSION = "1.0.1";
 
     private String username;
     private String password;
     private String apiEndpoint;
-    private String jsonRootPath = JSON_ROOT_DEFAULT;
 
     /** Defines the collection of property names for the adapter */
     public static class Properties {
@@ -108,7 +107,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
     public Count count(BridgeRequest request) throws BridgeError {
 
         ElasticsearchQualificationParser elasticParser = new ElasticsearchQualificationParser();
-        String jsonResponse = elasticQuery("count", request, elasticParser);
+        String jsonResponse = elasticQuery("count", null, request, elasticParser);
         Long count = JsonPath.parse(jsonResponse).read("$.count", Long.class);
 
         // Create and return a Count object.
@@ -120,13 +119,12 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         
         ElasticsearchQualificationParser elasticParser = new ElasticsearchQualificationParser();
         String metadataRoot = elasticParser.getJsonRootPath(request.getQuery());
+        String jsonRootPath = JSON_ROOT_DEFAULT;
         if (StringUtils.isNotBlank(metadataRoot)) {
             jsonRootPath = metadataRoot;
-        } else {
-            jsonRootPath = JSON_ROOT_DEFAULT;
         }
         
-        String jsonResponse = elasticQuery("search", request, elasticParser);
+        String jsonResponse = elasticQuery("search", jsonRootPath, request, elasticParser);
         DocumentContext jsonDocument = JsonPath.parse(jsonResponse);
         Object objectRoot = jsonDocument.read(jsonRootPath);
         Record recordResult = new Record(null);
@@ -167,13 +165,12 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         
         ElasticsearchQualificationParser elasticParser = new ElasticsearchQualificationParser();
         String metadataRoot = elasticParser.getJsonRootPath(request.getQuery());
+        String jsonRootPath = JSON_ROOT_DEFAULT;
         if (StringUtils.isNotBlank(metadataRoot)) {
             jsonRootPath = metadataRoot;
-        } else {
-            jsonRootPath = JSON_ROOT_DEFAULT;
         }
         
-        String jsonResponse = elasticQuery("search", request, elasticParser);
+        String jsonResponse = elasticQuery("search", jsonRootPath, request, elasticParser);
         List<Record> recordList = new ArrayList<Record>();
         DocumentContext jsonDocument = JsonPath.parse(jsonResponse);
         Object objectRoot = jsonDocument.read(jsonRootPath);
@@ -214,7 +211,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
      * PUBLIC HELPER METHODS
      *--------------------------------------------------------------------------------------------*/
     
-    public String buildUrl(String queryMethod, BridgeRequest request, ElasticsearchQualificationParser elasticParser) throws BridgeError {
+    public String buildUrl(String queryMethod, String jsonRootPath, BridgeRequest request, ElasticsearchQualificationParser elasticParser) throws BridgeError {
         Map<String,String> metadata = BridgeUtils.normalizePaginationMetadata(request.getMetadata());
         String pageSize = "1000";
         String offset = "0";
@@ -309,7 +306,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
             .append(URLEncoder.encode(parameterValue));
     }
     
-    private String elasticQuery(String queryMethod, BridgeRequest request, ElasticsearchQualificationParser elasticParser) throws BridgeError{
+    private String elasticQuery(String queryMethod, String jsonRootPath, BridgeRequest request, ElasticsearchQualificationParser elasticParser) throws BridgeError{
         
         String query = elasticParser.parse(request.getQuery(),request.getParameters());        
         //Set query to return everything if no qualification defined.
@@ -318,7 +315,7 @@ public class ElasticsearchAdapter implements BridgeAdapter {
         }
         
         String result = null;
-        String url = buildUrl(queryMethod, request, elasticParser);
+        String url = buildUrl(queryMethod, jsonRootPath, request, elasticParser);
         
         // Initialize the HTTP Client, Response, and Get objects.
         HttpClient client = new DefaultHttpClient();
